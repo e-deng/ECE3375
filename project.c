@@ -12,16 +12,16 @@ typedef struct{
 	int status;
 }a9_timer;
 	
-//variables that point to the objects
-volatile int* const hex1_ptr = (int*) HEX3_HEX0_BASE; 
-//volatile int* const hex2_ptr = (int*) HEX5_HEX4_BASE;
+volatile int *seg1_ptr = (int *)HEX3_HEX0_BASE;
+volatile int *seg2_ptr = (int *)HEX5_HEX4_BASE;
 volatile int* const switch_ptr = (int*) SWITCH_BASE;
 volatile int* const push_ptr = (int*) PUSH_BASE;
 volatile a9_timer* const a9_ptr = (a9_timer*) PRIVATE_TIMER_BASE;
-    int car1_present, car2_present, car3_present;
- int DELAY_LENGTH;
+int one, two, three;
+int DELAY_LENGTH;
 int occupied = 0x06; // 7-segment display value for "occupied" (red)
-    int vacant = 0x3F; // 7-segment display value for "vacant" (green)
+int vacant = 0x3F; // 7-segment display value for "vacant" (green)
+
 
 int getPush(void){
 	//create a value that will hold which push button is pressed
@@ -64,9 +64,6 @@ int main(void){
 	        
 	while(1){
 		int swVal = ReadSwitch();
-		int one;
-		int two;
-		int three;
 		// read switch status and set 7-seg display 1 accordingly
 		if (swVal & 0x1) {
 			one = occupied; // display '1' on 7-seg display 1
