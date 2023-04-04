@@ -63,18 +63,35 @@ int main(void){
 	a9_ptr -> load = 2000000;
 	        
 	while(1){
-	int swVal = ReadSwitch();
+		int swVal = ReadSwitch();
+		int one;
+		int two;
+		int three;
+		// read switch status and set 7-seg display 1 accordingly
+		if (swVal & 0x1) {
+			one = occupied; // display '1' on 7-seg display 1
+		} 
+		else {
+			one = vacant; // display '0' on 7-seg display 1
+		}
 
-	// Read the state of the ultrasonic sensors and switches
-	car1_present = (*switch_ptr & 0x1); // Switch 1
-	car2_present = (*switch_ptr & 0x2);// Switch 2
-	car3_present = (*switch_ptr & 0x4); // Switch 3
+		// read switch status and set 7-seg display 2 accordingly
+		if (swVal & 0x2) {
+			two = occupied; // display '1' on 7-seg display 2
+		} 
+		else {
+			two = vacant; // display '0' on 7-seg display 2
+		}
+		// read switch status and set 7-seg display 3 accordingly
+		if (swVal & 0x4) {
+			three = occupied; // display '1' on 7-seg display 3
+		} 
+		else {
+			three = vacant; // display '0' on 7-seg display 3
+		}
+		*seg1_ptr = one + (two<<8)+ (three<<16);
 
-	// Update the seven-segment displays based on the sensor readings
-	hex1_ptr[0] = car1_present ? occupied : vacant; // Display "occupied" if car1 is present, else "vacant"
-	//hex1_ptr[1] = car2_present ? occupied : vacant; // Display "occupied" if car2 is present, else "vacant"
-	//hex1_ptr[2] = car3_present ? occupied : vacant; // Display "occupied" if car3 is present, else "vacant"
-	
-	for (delay_count = DELAY_LENGTH; delay_count != 0; --delay_count); // delay loop
+		for (delay_count = DELAY_LENGTH; delay_count != 0; --delay_count); // delay loop
 	}
+	return 0;
 }
