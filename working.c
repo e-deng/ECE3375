@@ -1,11 +1,3 @@
-// Include necessary header files
-#include <stdio.h>
-#include "system.h"
-#include "altera_avalon_pio_regs.h"
-#include "alt_types.h"
-#include "sys/alt_irq.h"
-#include "priv/alt_legacy_irq.h"
-
 // Define base addresses for peripherals
 #define HEX3_HEX0_BASE 0xFF200020
 #define HEX5_HEX4_BASE 0xFF200030
@@ -20,7 +12,6 @@ volatile int *seg2_ptr = (int *)HEX5_HEX4_BASE;
 volatile int *switch_ptr = (int *)SWITCH_BASE;
 volatile int *push_ptr = (int *)PUSH_BASE;
 volatile int *ledr_ptr = (int *)LEDR_BASE;
-
 // Define hex codes for displaying numbers 0-9 on the 7-segment display
 int hex[10] = {0b00111111, 0b0000110, 0b01011011, 0b01001111, 0b01100110, 0b01101101, 0b01111100, 0b0000111, 0b01111111, 0b01101111};
 
@@ -57,7 +48,7 @@ void DisplayDigit(int value, int display) {
     int sec = (value / 10) % 10;
     // Calculate the seconds value by dividing value by 100 and then getting the remainder when divided by 10
     int tensSec = (value / 100) % 10;
-    
+
     // Check if the display value is 1
     if (display == 1) {
         // Set the first two digits of seg2_ptr to the tensSec and sec values
@@ -70,18 +61,17 @@ void DisplayDigit(int value, int display) {
     }
 }
 
-
 // Function to read the current value of the switches
 int ReadSwitch(void) {
     // get the value in the switch
     int swVal = *switch_ptr;
-     // return the switch value
+    // return the switch value
     return swVal;
 }
 
 // Function to display the number of vacant parking spots on the first 7-segment display
 void DisplayNum(int value) {
-     // creating variables for the timer
+    // creating variables for the timer
     int units = value;
     // setting the seven segment display addresses to the values in the integers
     *(seg1_ptr) = hex[units]<<24;
@@ -93,7 +83,6 @@ int main(void) {
     a9_ptr->control = 0b0000;
     a9_ptr->load = 0xFFFFFFFF;
     a9_ptr->control = 0b0101;
-
     // Initialize variables for the main loop
     int delay_count = 0;
     int DELAY_LENGTH = 20000;
@@ -115,15 +104,15 @@ int main(void) {
         /* !-------------------------------------------------------------------------------------------------------!*/
         // Check parking spot occupancy based on switch values
         swVal = *switch_ptr; // Read the value of the switches
-        int switchVal = ReadSwitch(); // Call ReadSwitch function to read switch values
+		int switchVal = ReadSwitch(); // Call ReadSwitch function to read switch values
         int vacant_spots = 0; // Initialize a variable to count vacant spots
-        // Loop through the parking spots to determine occupancy
+         // Loop through the parking spots to determine occupancy
         for (int i = 0; i < 3; ++i) {
-            // Set the occupied status of each parking spot based on the corresponding switch value
+             // Set the occupied status of each parking spot based on the corresponding switch value
             parking_spots[i].occupied = (swVal & (1 << i)) != 0;
         }
-
-       // Update elapsed time and timers 
+        
+        // Update elapsed time and timers
         int elapsed_ticks = last_tick - a9_ptr->counter; // Calculate the elapsed ticks since the last update
         // Check if elapsed_ticks is negative (counter wrapped around)
         if (elapsed_ticks < 0) {
@@ -157,21 +146,28 @@ int main(void) {
         It also updates the 7-segment display with the occupied/vacant status of the parking spots.*/
 
         /* !-------------------------------------------------------------------------------------------------------!*/
+
+        // Update timers
+        for (int i = 0; i < 3; ++i) {
+            if (parking_spots[i].occupied && parking_spots[i].time_remaining > 0) {
+                parking_spots[i].time_remaining--;
+            }
+        }
+
         // Handle push buttons 1-3 (add coin on release)
         pushVal = *push_ptr; // Read the value of the push buttons
-        // Loop through the first 3 push buttons
         for (int i = 0; i < 3; ++i) {
             // Check if the push button was previously pressed and is now released
             if ((prev_coin_pushVal[i] & (1 << i)) && !(pushVal & (1 << i))) {
                 // Add time to the corresponding parking spot when a coin is inserted
                 parking_spots[i].time_remaining += 5 * 100;
             }
-            // Update the previous state of the push button
+             // Update the previous state of the push button
             prev_coin_pushVal[i] = pushVal & (1 << i);
         }
 
         // Handle push button 4 (switch displayed timer on release)
-        // Check if push button 4 was previously pressed and is now released
+         // Check if push button 4 was previously pressed and is now released
         if ((prev_pushVal & 0x08) && !(pushVal & 0x08)) {
             // Cycle through the parking spots to display
             displayed_spot = (displayed_spot + 1) % 3;
@@ -182,11 +178,25 @@ int main(void) {
         // Display the timer of the currently selected parking spot
         DisplayDigit(parking_spots[displayed_spot].time_remaining, 1);
 
+        if (a9_ptr->counter - last_tick >= ticks_per_second) {
+            last_tick = a9_ptr->counter;
+            tick_count++;
+
+            if (tick_count >= ticks_per_second) {
+                for (int i = 0; i < 3; i++) {
+                    if (parking_spots[i].occupied && parking_spots[i].time_remaining > 0) {
+                        parking_spots[i].time_remaining -= 1;
+                    }
+                }
+                tick_count = 0;
+            }
+        }
+
         // Display occupied/vacant status on the first 3 7-Segment displays
         int occupied_display = 0; // Initialize a variable to hold the display value
         // Loop through the parking spots to generate the display value
         for (int i = 0; i < 3; i++) {
-            // Check if the parking spot is occupied
+             // Check if the parking spot is occupied
             if (parking_spots[i].occupied) {
                 // Set the corresponding 7-segment display value to 1 (occupied)
                 occupied_display |= (hex[1] << (i * 8));
@@ -197,6 +207,7 @@ int main(void) {
         }
         // Update the 7-segment display with the occupied/vacant status
         *seg1_ptr = occupied_display;
+
         /* ^-------------------------------------------------------------------------------------------------------^*/
 
         /*This code snippet updates the 7-segment display with the timer value of the currently selected parking spot. 
@@ -204,6 +215,8 @@ int main(void) {
         the fourth switch is turned on.*/
 
         /* !-------------------------------------------------------------------------------------------------------!*/
+
+        // Display the timer of the currently selected parking spot on 7-Segment displays 4-6
         int timer_display = 0; // Initialize a variable to hold the timer display value
         int value = parking_spots[displayed_spot].time_remaining; // Get the time remaining for the displayed spot
         int hundSec = value % 10; // Calculate the hundredths place of the time remaining
@@ -216,23 +229,22 @@ int main(void) {
         // Light up an LED corresponding to the timer being displayed
         *ledr_ptr = 1 << displayed_spot;
 
-        // Read switch status and count the number of switches off (unoccupied spots)
-        if (swVal & 0x08) { // Check if the fourth switch is turned on
-            for (int i = 0; i < 3; i++) { // Loop through the first 3 switches
-                if (!(switchVal & (1 << i))) { // Check if the switch is off (unoccupied)
-                    vacant_spots++; // Increment the count of vacant spots
-                }
+
+        // read switch status and count the number of switches off (unoccupied spots)
+		if(swVal & 0x08){ // Check if the fourth switch is turned on
+        for (int i = 0; i < 3; i++) { // Loop through the first 3 switches
+            if (!(switchVal & (1 << i))) { // Check if the switch is off (unoccupied)
+                vacant_spots++; // Increment the count of vacant spots
             }
-            DisplayNum(vacant_spots); // Display the number of vacant spots on the 7-segment display
         }
+        DisplayNum(vacant_spots); // Display the number of vacant spots on the 7-segment display
 
         /* ^-------------------------------------------------------------------------------------------------------^*/
+		}
 
         // Delay loop
-        for (delay_count = DELAY_LENGTH; delay_count != 0; --delay_count);
+		for (delay_count = DELAY_LENGTH; delay_count != 0; --delay_count);
     }
-
     // Exit the program (unreachable)
     return 0;
 }
-
